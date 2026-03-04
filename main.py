@@ -1,7 +1,7 @@
 import streamlit as st
 from PIL import Image
 import io
-import numpy as np
+import base64
 
 st.set_page_config(page_title="Image Converter", layout="centered")
 
@@ -18,48 +18,34 @@ if uploaded_file is not None:
 
     with col1:
         if st.button("Convert to PNG"):
-            png_buffer = io.BytesIO()
-            image.save(png_buffer, format="PNG")
-            png_buffer.seek(0)
-            st.download_button("Download PNG", data=png_buffer,
+            buf = io.BytesIO()
+            image.save(buf, format="PNG")
+            buf.seek(0)
+            st.download_button("Download PNG", data=buf,
                                file_name="converted.png", mime="image/png")
 
     with col2:
         if st.button("Convert to JPG"):
-            jpg_buffer = io.BytesIO()
-            image.convert("RGB").save(jpg_buffer, format="JPEG")
-            jpg_buffer.seek(0)
-            st.download_button("Download JPG", data=jpg_buffer,
+            buf = io.BytesIO()
+            image.convert("RGB").save(buf, format="JPEG")
+            buf.seek(0)
+            st.download_button("Download JPG", data=buf,
                                file_name="converted.jpg", mime="image/jpeg")
 
     with col3:
         if st.button("Convert to SVG"):
-            import potracer
+            # Encode image as base64 PNG embedded in SVG
+            png_buf = io.BytesIO()
+            image.save(png_buf, format="PNG")
+            png_buf.seek(0)
+            b64 = base64.b64encode(png_buf.read()).decode("utf-8")
 
-            # Convert to 1-bit bitmap for tracing
-            bw = image.convert("L").point(lambda x: 255 if x > 128 else 0, "1")
-            bmp = potracer.Bitmap(np.array(bw, dtype=np.uint32))
-            path = bmp.trace()
+            w, h = image.size
+            svg = f'''<svg xmlns="http://www.w3.org/2000/svg" 
+                          xmlns:xlink="http://www.w3.org/1999/xlink"
+                          width="{w}" height="{h}" viewBox="0 0 {w} {h}">
+  <image href="data:image/png;base64,{b64}" width="{w}" height="{h}"/>
+</svg>'''
 
-            svg_buffer = io.StringIO()
-            w, h = bw.size
-            svg_buffer.write(f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}">\n')
-            for curve in path:
-                svg_buffer.write('<path d="')
-                start = curve.start_point
-                svg_buffer.write(f"M {start.x},{h - start.y} ")
-                for segment in curve.segments:
-                    if segment.is_corner:
-                        svg_buffer.write(f"L {segment.c.x},{h - segment.c.y} ")
-                        svg_buffer.write(f"L {segment.end_point.x},{h - segment.end_point.y} ")
-                    else:
-                        svg_buffer.write(
-                            f"C {segment.c1.x},{h - segment.c1.y} "
-                            f"{segment.c2.x},{h - segment.c2.y} "
-                            f"{segment.end_point.x},{h - segment.end_point.y} "
-                        )
-                svg_buffer.write('Z" fill="black"/>\n')
-            svg_buffer.write("</svg>")
-
-            st.download_button("Download SVG", data=svg_buffer.getvalue(),
+            st.download_button("Download SVG", data=svg,
                                file_name="converted.svg", mime="image/svg+xml")

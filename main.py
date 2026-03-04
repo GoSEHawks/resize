@@ -1,4 +1,5 @@
 import streamlit as st
+import potrace   
 from PIL import Image
 import io
 from pathlib import Path
@@ -46,3 +47,13 @@ if uploaded_file is not None:
         if st.button("Convert to SVG"):
             st.info("Note: Use an online tool or 'potrace' library for true raster-to-vector conversion")
             st.caption("PIL cannot directly convert to SVG. Consider using 'potrace' or online converters.")
+
+    # Example of using potrace to convert to SVG
+    st.write("Example of using potrace to convert to SVG")
+    im = Image.open(uploaded_file).convert('1')
+    bitmap = potrace.Bitmap(im.tobytes(), im.size[0], im.size[1])
+    path = bitmap.trace()
+    svg = path.to_svg(scale=1.0)   # or iterate paths and build XML yourself
+
+    with open('out.svg','w') as f:
+        f.write(svg)
